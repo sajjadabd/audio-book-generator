@@ -17,6 +17,19 @@ class TextToSpeechApp:
         self.root.geometry("600x600")
         self.root.resizable(True, True)
         
+        # Set dark theme colors
+        self.dark_bg = "#1e1e1e"
+        self.dark_secondary_bg = "#2d2d2d"
+        self.gray_color = "#adacac"
+        self.dark_text = "#e0e0e0"
+        self.accent_color = "#007acc"  # Blue accent color
+        
+        # Apply dark theme to root window
+        self.root.configure(bg=self.dark_bg)
+        
+        # Set up ttk styles for dark theme
+        self.setup_styles()
+        
         # Initialize pygame mixer for audio playback
         mixer.init()
         
@@ -42,14 +55,47 @@ class TextToSpeechApp:
         
         # Voice options
         self.voices = {
+            # United States (English)
             "US Female (Jenny)": "en-US-JennyNeural",
+            "US Female (Aria)": "en-US-AriaNeural",
+            "US Female (Ana)": "en-US-AnaNeural",
+            "US Female (Michelle)": "en-US-MichelleNeural",
+            "US Female (Sara)": "en-US-SaraNeural",
             "US Male (Guy)": "en-US-GuyNeural",
+            "US Male (Davis)": "en-US-DavisNeural",
+            "US Male (Jason)": "en-US-JasonNeural",
+            "US Male (Tony)": "en-US-TonyNeural",
+            "US Male (Andrew)": "en-US-AndrewNeural",
+            
+            # United Kingdom (English)
             "UK Female (Sonia)": "en-GB-SoniaNeural",
+            "UK Female (Libby)": "en-GB-LibbyNeural",
+            "UK Female (Mia)": "en-GB-MiaNeural",
+            "UK Female (Abbie)": "en-GB-AbbieNeural",
             "UK Male (Ryan)": "en-GB-RyanNeural",
+            "UK Male (Thomas)": "en-GB-ThomasNeural",
+            
+            # Australia (English)
             "Australian Female (Natasha)": "en-AU-NatashaNeural",
+            "Australian Female (Isla)": "en-AU-IslaNeural",
             "Australian Male (William)": "en-AU-WilliamNeural",
-            "Indian Female (Neerja)": "en-IN-NeerjaNeural",
-            "Indian Male (Prabhat)": "en-IN-PrabhatNeural",
+            "Australian Male (Liam)": "en-AU-LiamNeural",
+            
+            "French Female (Denise)": "fr-FR-DeniseNeural",
+            "French Male (Henri)": "fr-FR-HenriNeural",
+            
+            "Arabic Female (Hoda)": "ar-EG-HodaNeural",
+            "Arabic Male (Hamed)": "ar-EG-HamedNeural",
+            
+            "German Female (Katja)": "de-DE-KatjaNeural",
+            "German Male (Conrad)": "de-DE-ConradNeural",
+            
+            "New Zealand Female (Molly)": "en-NZ-MollyNeural",
+            "New Zealand Male (Mitchell)": "en-NZ-MitchellNeural",
+            
+            # Spanish
+            "Spanish Female (Elvira)": "es-ES-ElviraNeural",
+            "Spanish Male (Alvaro)": "es-ES-AlvaroNeural",
         }
         
         # Create UI elements
@@ -57,6 +103,65 @@ class TextToSpeechApp:
         
         # Setup progress update timer
         self.progress_update_id = None
+    
+    def setup_styles(self):
+        """Set up ttk styles for dark theme"""
+        style = ttk.Style()
+        
+        # Configure frame styles
+        style.configure("TFrame", background=self.dark_bg)
+        style.configure("TLabelframe", background=self.dark_bg, foreground=self.dark_text)
+        style.configure("TLabelframe.Label", background=self.dark_bg, foreground=self.dark_text)
+        
+        # Configure label styles
+        style.configure("TLabel", background=self.dark_bg, foreground=self.dark_text)
+        
+        # Configure button styles - with black foreground color
+        style.configure("TButton", 
+                       background=self.dark_secondary_bg, 
+                       foreground="black",  # Changed to black
+                       borderwidth=1,
+                       focusthickness=3,
+                       focuscolor=self.accent_color)
+        
+        # Button hover and pressed states
+        style.map("TButton", 
+                 background=[("active", self.accent_color), 
+                            ("pressed", self.accent_color)], 
+                 foreground=[("active", "black"),  # Changed to black 
+                            ("pressed", "black")])  # Changed to black
+        
+        # Configure checkbox styles
+        style.configure("TCheckbutton", 
+                       background=self.dark_bg, 
+                       foreground=self.dark_text)
+        style.map("TCheckbutton",
+                 background=[("active", self.dark_bg)],
+                 foreground=[("active", self.dark_text)])
+        
+        # Configure scale (slider) style
+        style.configure("TScale", 
+                       background=self.dark_bg, 
+                       troughcolor=self.dark_secondary_bg)
+        
+        # Configure combobox style - with black foreground color
+        style.configure("TCombobox", 
+                       fieldbackground=self.dark_secondary_bg,
+                       background=self.dark_secondary_bg,
+                       foreground="black",  # Changed to black
+                       selectbackground=self.accent_color,
+                       selectforeground="black")  # Changed to black
+        
+        # Set dropdown list colors (this requires tk option settings)
+        self.root.option_add('*TCombobox*Listbox.background', self.gray_color)
+        self.root.option_add('*TCombobox*Listbox.foreground', "black")  # Changed to black
+        self.root.option_add('*TCombobox*Listbox.selectBackground', self.accent_color)
+        self.root.option_add('*TCombobox*Listbox.selectForeground', "black")  # Changed to black
+        
+        # Configure progress bar style
+        style.configure("TProgressbar", 
+                       background=self.accent_color,
+                       troughcolor=self.dark_secondary_bg)
         
     def create_widgets(self):
         # Main frame
@@ -90,7 +195,6 @@ class TextToSpeechApp:
             rounded_value = round(float(value) / 5) * 5
             # Set the variable to the rounded value
             self.speech_rate.set(rounded_value)
-            
             
         # Speech rate slider
         rate_slider = ttk.Scale(rate_frame, 
@@ -139,9 +243,23 @@ class TextToSpeechApp:
         )
         auto_generate_check.pack(side=tk.RIGHT, padx=5)
         
-        # Text area
-        self.text_area = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, width=40, height=10)
+        # Text area with dark theme colors
+        self.text_area = scrolledtext.ScrolledText(
+            text_frame, 
+            wrap=tk.WORD, 
+            width=40, 
+            height=10,
+            bg=self.dark_secondary_bg,
+            fg=self.dark_text,
+            insertbackground=self.dark_text,  # Cursor color
+            selectbackground=self.accent_color,
+            selectforeground=self.dark_text
+        )
         self.text_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Configure scrollbar colors
+        self.text_area.config(highlightbackground=self.dark_secondary_bg, 
+                             highlightcolor=self.accent_color)
         
         # Bind text changes
         self.text_area.bind("<KeyRelease>", self.on_text_change)
