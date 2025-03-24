@@ -8,6 +8,7 @@ import threading
 import time
 import pygame
 from pygame import mixer
+from mutagen.mp3 import MP3  # Add this import for accurate audio length
 
 class TextToSpeechApp:
     def __init__(self, root):
@@ -24,6 +25,10 @@ class TextToSpeechApp:
         self.is_playing = False
         self.audio_length = 0
         self.audio_pos = 0
+        
+        # Track pause positions
+        self.paused_pos = 0
+        self.start_time = 0
         
         # Auto-generate flag
         self.auto_generate = tk.BooleanVar(value=False)
@@ -257,8 +262,32 @@ class TextToSpeechApp:
         # Update status
         self.status_var.set("Speech generated successfully")
         
+        # Clean up previous file if exists
+        if self.current_audio_file and os.path.exists(self.current_audio_file):
+            try:
+                # Stop any playing audio first
+                if self.is_playing:
+                    self.stop_audio()
+                
+                # Delete the file
+                os.remove(self.current_audio_file)
+            except Exception as e:
+                print(f"Error removing previous audio file: {e}")
+        
         # Store the current audio file path
         self.current_audio_file = output_file
+        
+        # Get accurate audio length using mutagen
+        try:
+            audio = MP3(output_file)
+            self.audio_length = audio.info.length
+            
+            # Update total time display
+            mins, secs = divmod(int(self.audio_length), 60)
+            self.total_time.configure(text=f"/ {mins}:{secs:02d}")
+        except Exception as e:
+            print(f"Error getting audio length: {e}")
+            self.audio_length = 30  # Fallback to default
         
         # Enable player controls
         self.play_button.configure(state=tk.NORMAL)
@@ -284,12 +313,15 @@ class TextToSpeechApp:
             # Set playing flag
             self.is_playing = True
             
-            # Get audio length in seconds (approximate)
-            self.audio_length = self.get_audio_length()
+            # Reset pause position
+            if self.paused_pos > 0:
+                # If resuming from a pause, we need to set the position
+                # However, pygame can't set position directly, so we'd need a different approach
+                # For now, we're just going to restart and track our playing position
+                self.paused_pos = 0
             
-            # Update total time display
-            mins, secs = divmod(int(self.audio_length), 60)
-            self.total_time.configure(text=f"/ {mins}:{secs:02d}")
+            # Track start time for progress calculations
+            self.start_time = time.time()
             
             # Start progress updates
             self.update_progress()
@@ -304,17 +336,23 @@ class TextToSpeechApp:
             self.play_button.configure(text="Play")
             self.is_playing = False
             
+            # Save current position for proper progress tracking
+            self.paused_pos = time.time() - self.start_time
+            
             # Cancel progress updates
             if self.progress_update_id:
                 self.root.after_cancel(self.progress_update_id)
                 self.progress_update_id = None
         else:
             # Resume or start playback
-            if mixer.music.get_pos() > 0:  # If already started but paused
+            if self.paused_pos > 0:  # If paused
                 mixer.music.unpause()
+                # Update start time to account for paused duration
+                self.start_time = time.time() - self.paused_pos
             else:  # Start from beginning
                 mixer.music.load(self.current_audio_file)
                 mixer.music.play()
+                self.start_time = time.time()
                 
             self.play_button.configure(text="Pause")
             self.is_playing = True
@@ -331,6 +369,10 @@ class TextToSpeechApp:
         self.play_button.configure(text="Play")
         self.is_playing = False
         
+        # Reset tracking variables
+        self.paused_pos = 0
+        self.start_time = 0
+        
         # Reset progress
         self.progress_var.set(0)
         self.current_time.configure(text="0:00")
@@ -342,16 +384,15 @@ class TextToSpeechApp:
     
     def update_progress(self):
         if self.is_playing:
-            # Get current position in milliseconds
-            pos = mixer.music.get_pos()
+            # Calculate current position based on real time elapsed
+            current_time = time.time()
+            pos_seconds = current_time - self.start_time
             
-            if pos < 0:  # Playing finished
+            # Check if playback has ended
+            if pos_seconds >= self.audio_length:
                 self.stop_audio()
                 return
                 
-            # Convert to seconds
-            pos_seconds = pos / 1000
-            
             # Update progress bar
             if self.audio_length > 0:
                 progress = (pos_seconds / self.audio_length) * 100
@@ -365,13 +406,17 @@ class TextToSpeechApp:
             self.progress_update_id = self.root.after(100, self.update_progress)
     
     def get_audio_length(self):
-        # This is an approximation - pygame doesn't provide an easy way to get audio length
-        # For a more accurate method, you'd need to use a library like mutagen
+        """Get accurate length of the audio file"""
+        if not self.current_audio_file or not os.path.exists(self.current_audio_file):
+            return 30  # Default fallback
+            
         try:
-            # Default to 30 seconds if we can't determine
-            return 30
-        except:
-            return 30
+            # Use mutagen to get accurate audio length
+            audio = MP3(self.current_audio_file)
+            return audio.info.length
+        except Exception as e:
+            print(f"Error getting audio length: {e}")
+            return 30  # Fallback to default
 
 # Run the application
 if __name__ == "__main__":
