@@ -25,6 +25,13 @@ class TextToSpeechApp:
         self.audio_length = 0
         self.audio_pos = 0
         
+        # Auto-generate flag
+        self.auto_generate = tk.BooleanVar(value=False)
+        
+        # Text modification tracking
+        self.last_text = ""
+        self.text_modified_timer = None
+        
         # Voice options
         self.voices = {
             "US Female (Jenny)": "en-US-JennyNeural",
@@ -60,12 +67,33 @@ class TextToSpeechApp:
         voice_dropdown.current(0)
         voice_dropdown.pack(side=tk.LEFT, padx=5)
         
-        # Text input area
+        # Text input area with controls
         text_frame = ttk.LabelFrame(main_frame, text="Enter Text", padding="5")
         text_frame.pack(fill=tk.BOTH, expand=True, pady=5)
         
+        # Controls above text area
+        text_controls_frame = ttk.Frame(text_frame)
+        text_controls_frame.pack(fill=tk.X, pady=(0, 5))
+        
+        # Clear button
+        clear_button = ttk.Button(text_controls_frame, text="Clear Text", command=self.clear_text)
+        clear_button.pack(side=tk.LEFT, padx=5)
+        
+        # Auto-generate checkbox
+        auto_generate_check = ttk.Checkbutton(
+            text_controls_frame, 
+            text="Auto-generate on text change", 
+            variable=self.auto_generate,
+            command=self.toggle_auto_generate
+        )
+        auto_generate_check.pack(side=tk.RIGHT, padx=5)
+        
+        # Text area
         self.text_area = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, width=40, height=10)
         self.text_area.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Bind text changes
+        self.text_area.bind("<KeyRelease>", self.on_text_change)
         
         # Generate button
         generate_button = ttk.Button(main_frame, text="Generate Speech", command=self.generate_speech)
@@ -105,6 +133,35 @@ class TextToSpeechApp:
         self.status_var.set("Ready")
         status_label = ttk.Label(main_frame, textvariable=self.status_var)
         status_label.pack(pady=5)
+    
+    def clear_text(self):
+        """Clear the text area"""
+        self.text_area.delete("1.0", tk.END)
+        self.last_text = ""
+    
+    def toggle_auto_generate(self):
+        """Handle auto-generate checkbox toggle"""
+        if self.auto_generate.get():
+            self.status_var.set("Auto-generate enabled")
+        else:
+            self.status_var.set("Auto-generate disabled")
+    
+    def on_text_change(self, event=None):
+        """Handle text changes and trigger auto-generation if enabled"""
+        # Cancel any pending text change timer
+        if self.text_modified_timer:
+            self.root.after_cancel(self.text_modified_timer)
+        
+        # Set a new timer to wait for user to finish typing
+        if self.auto_generate.get():
+            self.text_modified_timer = self.root.after(1000, self.check_text_changes)
+    
+    def check_text_changes(self):
+        """Check if text has changed and generate audio if needed"""
+        current_text = self.text_area.get("1.0", tk.END).strip()
+        if current_text != self.last_text and current_text:
+            self.last_text = current_text
+            self.generate_speech()
         
     def generate_speech(self):
         # Disable generate button during generation
