@@ -45,7 +45,9 @@ class TextToSpeechApp:
         self.setup_styles()
         
         # Initialize pygame mixer for audio playback
+        # Initialize pygame mixer for audio playback
         mixer.init()
+        mixer.music.set_volume(0.7)  # Set default volume to 70%
         
         # Current audio file path
         self.current_audio_file = None
@@ -354,12 +356,26 @@ class TextToSpeechApp:
         # Control buttons
         control_frame = ttk.Frame(player_frame)
         control_frame.pack(pady=ButtonYPadding)
-        
-        self.play_button = ttk.Button(control_frame, text="Play", command=self.toggle_play, state=tk.DISABLED, cursor='hand2', style='Small.TButton')
+
+        # Volume down button
+        vol_down_button = ttk.Button(control_frame, text="-", command=self.decrease_volume, 
+                                   width=3, cursor='hand2', style='Small.TButton')
+        vol_down_button.pack(side=tk.LEFT, padx=ButtonXPadding)
+
+        # Play button
+        self.play_button = ttk.Button(control_frame, text="Play", command=self.toggle_play, 
+                                    state=tk.DISABLED, cursor='hand2', style='Small.TButton')
         self.play_button.pack(side=tk.LEFT, padx=ButtonXPadding)
-        
-        self.stop_button = ttk.Button(control_frame, text="Stop", command=self.stop_audio, state=tk.DISABLED, cursor='hand2', style='Small.TButton')
+
+        # Stop button
+        self.stop_button = ttk.Button(control_frame, text="Stop", command=self.stop_audio, 
+                                    state=tk.DISABLED, cursor='hand2', style='Small.TButton')
         self.stop_button.pack(side=tk.LEFT, padx=ButtonXPadding)
+
+        # Volume up button
+        vol_up_button = ttk.Button(control_frame, text="+", command=self.increase_volume, 
+                                 width=3, cursor='hand2', style='Small.TButton')
+        vol_up_button.pack(side=tk.LEFT, padx=ButtonXPadding)
         
         # Status label - changed to regular tk.Label to allow color changes
         self.status_var = tk.StringVar()
@@ -369,6 +385,22 @@ class TextToSpeechApp:
     
     
     
+    
+    def increase_volume(self):
+        """Increase the volume by 10%"""
+        current_vol = mixer.music.get_volume()
+        new_vol = min(2.0, current_vol + 0.1)  # Cap at 1.0 (max volume)
+        mixer.music.set_volume(new_vol)
+        self.status_var.set(f"Volume: {int(new_vol * 100)}%")
+        self.reset_status_color()
+
+    def decrease_volume(self):
+        """Decrease the volume by 10%"""
+        current_vol = mixer.music.get_volume()
+        new_vol = max(0.0, current_vol - 0.1)  # Minimum is 0.0 (silent)
+        mixer.music.set_volume(new_vol)
+        self.status_var.set(f"Volume: {int(new_vol * 100)}%")
+        self.reset_status_color()
     
     
     def progress_bar_click(self, event):
