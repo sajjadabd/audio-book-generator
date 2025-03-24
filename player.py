@@ -254,6 +254,7 @@ class TextToSpeechApp:
                                orient=tk.HORIZONTAL, 
                                variable=self.speech_rate, 
                                length=200,
+                               cursor='hand2',
                                command=on_slider_change)
         rate_slider.pack(side=tk.LEFT, padx=ButtonXPadding, fill=tk.X, expand=True)
         
@@ -299,6 +300,7 @@ class TextToSpeechApp:
             text_controls_frame, 
             text="Auto-generate on text change", 
             variable=self.auto_generate,
+            cursor='hand2',
             command=self.toggle_auto_generate
         )
         auto_generate_check.pack(side=tk.RIGHT, padx=ButtonXPadding)
@@ -482,65 +484,50 @@ class TextToSpeechApp:
         cleaned_lines = []
         
         in_code_block = False
-        code_indent = ""
         
         for line in lines:
             # Check for code block start/end
             if re.match(r'^\s*```[a-zA-Z0-9_]*\s*$', line):
-                # Toggle code block state
-                in_code_block = not in_code_block
-                # If starting a code block, store the current indentation
                 if in_code_block:
-                    code_indent = re.match(r'^(\s*)', line).group(1)
-                continue  # Skip the code block markers
+                    # End of code block - add marker but no content
+                    cleaned_lines.append('```\n')
+                else:
+                    # Start of code block - add marker but skip content
+                    cleaned_lines.append(line)
+                in_code_block = not in_code_block
+                continue
             
             if in_code_block:
-                # Inside code block - preserve exactly as is, just add consistent indentation
-                cleaned_lines.append(line)
+                # Skip all content within code blocks
                 continue
             
-            # Check if line starts with a number (e.g., "1. Item") or hyphen (e.g., "- Item")
+            # Remove all parentheses and their content
+            line = re.sub(r'\([^)]*\)', '', line)
+            
+            # Remove markdown headers (### Header) and add newline
+            if re.match(r'^\s*#{1,6}\s+', line):
+                cleaned_line = re.sub(r'^\s*#{1,6}\s+', '', line)
+                #if not cleaned_line.endswith('\n'):
+                cleaned_line += '\n'
+                cleaned_lines.append(cleaned_line)
+                continue
+                
+            # Handle lines starting with numbers or hyphens
             if re.match(r'^\s*\d+\.\s+', line) or re.match(r'^\s*-\s+', line):
-                # Remove markdown list formatting but keep content
                 cleaned_line = re.sub(r'^\s*\d+\.\s+', '', line)  # Remove numbered list
                 cleaned_line = re.sub(r'^\s*-\s+', '', cleaned_line)  # Remove bullet point
-                # Add newline at the end if not already present
                 #if not cleaned_line.endswith('\n'):
                 cleaned_line += '\n'
                 cleaned_lines.append(cleaned_line)
                 continue
             
-            # Check if line contains markdown header
-            if re.match(r'^\s*#{1,6}\s+', line):
-                # Remove markdown headers (### Header)
-                cleaned_line = re.sub(r'^\s*#{1,6}\s+', '', line)
-                # Add newline at the end if not already present
-                #if not cleaned_line.endswith('\n'):
-                cleaned_line += '\n'
-                cleaned_lines.append(cleaned_line)
-                continue
-                
-            # Replace bullet points with newlines
-            if re.match(r'^\s*[-]\s+', line):
-                indentation = re.match(r'^(\s*)', line).group(1)
-                content = re.sub(r'^\s*[-]\s+', '', line)
-                # Add a newline before the content (except for the first bullet point)
-                if cleaned_lines:
-                    cleaned_lines.append('\n' + indentation + content)
-                else:
-                    cleaned_lines.append(indentation + content)
-                continue
-                
-            # Remove numbered lists but keep content
-            cleaned_line = re.sub(r'^\s*\d+\.\s+', '', line)
+            # Remove emphasis markers
+            cleaned_line = re.sub(r'\*\*([^*]+)\*\*', r'\1', line)  # Bold
+            cleaned_line = re.sub(r'\*([^*]+)\*', r'\1', cleaned_line)  # Italic
+            cleaned_line = re.sub(r'__([^_]+)__', r'\1', cleaned_line)  # Bold
+            cleaned_line = re.sub(r'_([^_]+)_', r'\1', cleaned_line)  # Italic
             
-            # Remove emphasis markers (* and _)
-            cleaned_line = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned_line)  # Bold
-            cleaned_line = re.sub(r'\*([^*]+)\*', r'\1', cleaned_line)      # Italic
-            cleaned_line = re.sub(r'__([^_]+)__', r'\1', cleaned_line)      # Bold
-            cleaned_line = re.sub(r'_([^_]+)_', r'\1', cleaned_line)        # Italic
-            
-            # Remove inline code (backticks)
+            # Remove inline code
             cleaned_line = re.sub(r'`([^`]+)`', r'\1', cleaned_line)
             
             # Remove blockquotes
@@ -550,7 +537,7 @@ class TextToSpeechApp:
             if re.match(r'^\s*[-*_]{3,}\s*$', cleaned_line):
                 cleaned_line = ''
             
-            # Remove link syntax
+            # Remove link syntax (keeping link text)
             cleaned_line = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned_line)
             
             # Remove image syntax
@@ -558,16 +545,12 @@ class TextToSpeechApp:
             
             cleaned_lines.append(cleaned_line)
         
-        # Join all lines back together, preserving original newlines
+        # Join all lines back together
         cleaned_text = ''.join(cleaned_lines)
         
-        # Remove any remaining ** and ` characters
+        # Final cleanup
         cleaned_text = cleaned_text.replace('**', '')
         cleaned_text = cleaned_text.replace('`', '')
-        
-        # Replace <script> and </script> tags with newlines
-        cleaned_text = re.sub(r'<script\b[^>]*>', '\n', cleaned_text)
-        cleaned_text = re.sub(r'</script>', '\n', cleaned_text)
         
         # Clear and insert cleaned text
         self.text_area.delete("1.0", tk.END)
