@@ -13,7 +13,7 @@ class TextToSpeechApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Text to Speech Application")
-        self.root.geometry("600x500")
+        self.root.geometry("600x600")
         self.root.resizable(True, True)
         
         # Initialize pygame mixer for audio playback
@@ -27,6 +27,9 @@ class TextToSpeechApp:
         
         # Auto-generate flag
         self.auto_generate = tk.BooleanVar(value=False)
+        
+        # Speech rate
+        self.speech_rate = tk.IntVar(value=-20)  # Default to -20% (slower)
         
         # Text modification tracking
         self.last_text = ""
@@ -55,9 +58,13 @@ class TextToSpeechApp:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Voice selection
-        voice_frame = ttk.LabelFrame(main_frame, text="Voice Selection", padding="5")
-        voice_frame.pack(fill=tk.X, pady=5)
+        # Voice selection and rate control
+        settings_frame = ttk.LabelFrame(main_frame, text="Voice Settings", padding="5")
+        settings_frame.pack(fill=tk.X, pady=5)
+        
+        # Voice dropdown
+        voice_frame = ttk.Frame(settings_frame)
+        voice_frame.pack(fill=tk.X, pady=2)
         
         ttk.Label(voice_frame, text="Select Voice:").pack(side=tk.LEFT, padx=5)
         
@@ -66,6 +73,45 @@ class TextToSpeechApp:
         voice_dropdown['values'] = list(self.voices.keys())
         voice_dropdown.current(0)
         voice_dropdown.pack(side=tk.LEFT, padx=5)
+        
+        # Speech rate control
+        rate_frame = ttk.Frame(settings_frame)
+        rate_frame.pack(fill=tk.X, pady=2)
+        
+        ttk.Label(rate_frame, text="Speech Rate:").pack(side=tk.LEFT, padx=5)
+        
+        def on_slider_change(value):
+            # Round to nearest multiple of 5
+            rounded_value = round(float(value) / 5) * 5
+            # Set the variable to the rounded value
+            self.speech_rate.set(rounded_value)
+            
+            
+        # Speech rate slider
+        rate_slider = ttk.Scale(rate_frame, 
+                               from_=-50, 
+                               to=50, 
+                               orient=tk.HORIZONTAL, 
+                               variable=self.speech_rate, 
+                               length=200,
+                               command=on_slider_change)
+        rate_slider.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        
+        # Speech rate value display
+        self.rate_display = ttk.Label(rate_frame, width=5)
+        self.rate_display.pack(side=tk.LEFT, padx=5)
+        
+        # Update rate display function
+        def update_rate_display(*args):
+            val = self.speech_rate.get()
+            if val > 0:
+                self.rate_display.config(text=f"+{val}%")
+            else:
+                self.rate_display.config(text=f"{val}%")
+                
+        # Call initially and bind to variable changes
+        update_rate_display()
+        self.speech_rate.trace_add("write", update_rate_display)
         
         # Text input area with controls
         text_frame = ttk.LabelFrame(main_frame, text="Enter Text", padding="5")
@@ -184,17 +230,21 @@ class TextToSpeechApp:
         selected_voice_name = self.voice_var.get()
         selected_voice = self.voices[selected_voice_name]
         
+        # Get speech rate
+        rate_value = self.speech_rate.get()
+        rate_str = f"{rate_value}%"
+        
         # Generate audio in a separate thread
-        threading.Thread(target=self.generate_speech_thread, args=(text, selected_voice)).start()
+        threading.Thread(target=self.generate_speech_thread, args=(text, selected_voice, rate_str)).start()
     
-    def generate_speech_thread(self, text, voice):
+    def generate_speech_thread(self, text, voice, rate):
         # Generate a random filename
         random_filename = str(random.getrandbits(32))
         output_file = f"output-{random_filename}.mp3"
         
         # Generate speech using edge_tts
         async def generate():
-            tts = edge_tts.Communicate(text, voice, rate="-20%")  # 20% slower
+            tts = edge_tts.Communicate(text, voice, rate=rate)
             await tts.save(output_file)
             
             # Update UI from the main thread
