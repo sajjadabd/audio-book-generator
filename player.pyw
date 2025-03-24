@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import scrolledtext, ttk
+from tkinter import scrolledtext, ttk, font
 import edge_tts
 import asyncio
 import os
@@ -29,6 +29,10 @@ class TextToSpeechApp:
         self.root.geometry(f"+{x_position}+{y_position}")
         
         self.root.resizable(True, True)
+        
+        # Define custom fonts
+        self.custom_font = ("Ubuntu", 8)
+        self.small_font = ("Ubuntu", 8)
         
         # Set dark theme colors
         self.dark_bg = "#1e1e1e"
@@ -134,13 +138,17 @@ class TextToSpeechApp:
         # Set the theme to clam for better styling control
         style.theme_use("clam")
         
+        # Create and configure named fonts
+        default_font = font.nametofont("TkDefaultFont")
+        default_font.configure(family="Ubuntu", size=12)
+        
         # Configure frame styles
         style.configure("TFrame", background=self.dark_bg)
-        style.configure("TLabelframe", background=self.dark_bg, foreground=self.dark_text)
-        style.configure("TLabelframe.Label", background=self.dark_bg, foreground=self.dark_text)
+        style.configure("TLabelframe", background=self.dark_bg, foreground=self.dark_text,font=self.custom_font)
+        style.configure("TLabelframe.Label", background=self.dark_bg, foreground=self.dark_text,font=self.custom_font)
         
         # Configure label styles
-        style.configure("TLabel", background=self.dark_bg, foreground=self.dark_text)
+        style.configure("TLabel", background=self.dark_bg, foreground=self.dark_text,font=self.custom_font)
         
         # Configure button styles - with black foreground color
         style.configure("TButton", 
@@ -148,7 +156,8 @@ class TextToSpeechApp:
                        foreground="black",
                        borderwidth=1,
                        focusthickness=3,
-                       focuscolor=self.accent_color)
+                       focuscolor=self.accent_color,
+                       font=self.custom_font)
         
         # Button hover and pressed states
         style.map("TButton", 
@@ -160,7 +169,8 @@ class TextToSpeechApp:
         # Configure checkbox styles
         style.configure("TCheckbutton", 
                        background=self.dark_bg, 
-                       foreground=self.dark_text)
+                       foreground=self.dark_text,
+                       font=self.small_font)
         style.map("TCheckbutton",
                  background=[("active", self.dark_bg)],
                  foreground=[("active", self.dark_text)])
@@ -176,7 +186,8 @@ class TextToSpeechApp:
                        background=self.dark_secondary_bg,
                        foreground="black",
                        selectbackground=self.accent_color,
-                       selectforeground="black")
+                       selectforeground="black",
+                       font=self.small_font)
         
         style.map("TCombobox",
                   fieldbackground=[("readonly", self.accent_color)],
@@ -190,6 +201,7 @@ class TextToSpeechApp:
         self.root.option_add('*TCombobox*Listbox.foreground', "black")
         self.root.option_add('*TCombobox*Listbox.selectBackground', self.accent_color)
         self.root.option_add('*TCombobox*Listbox.selectForeground', "black")
+        self.root.option_add('*TCombobox*Listbox.font', self.small_font)
         
         # Configure progress bar style
         style.configure("TProgressbar", 
