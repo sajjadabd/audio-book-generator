@@ -23,6 +23,7 @@ class TextToSpeechApp:
         self.gray_color = "#adacac"
         self.dark_text = "#e0e0e0"
         self.accent_color = "#007acc"  # Blue accent color
+        self.error_color = "#ff5555"   # Red color for errors
         
         # Apply dark theme to root window
         self.root.configure(bg=self.dark_bg)
@@ -297,11 +298,11 @@ class TextToSpeechApp:
         self.stop_button = ttk.Button(control_frame, text="Stop", command=self.stop_audio, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5)
         
-        # Status label
+        # Status label - changed to regular tk.Label to allow color changes
         self.status_var = tk.StringVar()
         self.status_var.set("Ready")
-        status_label = ttk.Label(main_frame, textvariable=self.status_var)
-        status_label.pack(pady=5)
+        self.status_label = tk.Label(main_frame, textvariable=self.status_var, bg=self.dark_bg, fg=self.dark_text)
+        self.status_label.pack(pady=5)
     
     def clear_text(self):
         """Clear the text area"""
@@ -331,6 +332,18 @@ class TextToSpeechApp:
         if current_text != self.last_text and current_text:
             self.last_text = current_text
             self.generate_speech()
+    
+    def display_error(self, message):
+        """Display error message with red color"""
+        self.status_var.set(message)
+        self.status_label.config(fg=self.error_color)
+        
+        # Set a timer to reset color after 5 seconds
+        self.root.after(5000, self.reset_status_color)
+    
+    def reset_status_color(self):
+        """Reset status label color to normal"""
+        self.status_label.config(fg=self.dark_text)
         
     def generate_speech(self):
         # Disable generate button during generation
@@ -339,6 +352,7 @@ class TextToSpeechApp:
                 widget.configure(state=tk.DISABLED)
         
         self.status_var.set("Generating speech...")
+        self.reset_status_color()  # Ensure normal text color
         self.root.update()
         
         # Get text and selected voice
@@ -367,18 +381,48 @@ class TextToSpeechApp:
         
         # Generate speech using edge_tts
         async def generate():
-            tts = edge_tts.Communicate(text, voice, rate=rate)
-            await tts.save(output_file)
-            
-            # Update UI from the main thread
-            self.root.after(0, lambda: self.speech_generated(output_file))
+            try:
+                tts = edge_tts.Communicate(text, voice, rate=rate)
+                await tts.save(output_file)
+                
+                # Update UI from the main thread
+                self.root.after(0, lambda: self.speech_generated(output_file))
+                
+            except edge_tts.exceptions.NoAudioReceived:
+                # Handle the specific error
+                self.root.after(0, lambda: self.handle_no_audio_error())
+                
+            except Exception as e:
+                # Handle other errors
+                self.root.after(0, lambda: self.handle_general_error(str(e)))
         
         # Run the async function
         asyncio.run(generate())
     
+    def handle_no_audio_error(self):
+        """Handle NoAudioReceived error"""
+        # Display error message in red
+        self.display_error("No audio was received. The text may contain unsupported characters or the voice can't process it.")
+        
+        # Re-enable buttons
+        for widget in self.root.winfo_children():
+            if isinstance(widget, ttk.Button):
+                widget.configure(state=tk.NORMAL)
+    
+    def handle_general_error(self, error_message):
+        """Handle general errors"""
+        # Display error message in red
+        self.display_error(f"Error generating speech: {error_message}")
+        
+        # Re-enable buttons
+        for widget in self.root.winfo_children():
+            if isinstance(widget, ttk.Button):
+                widget.configure(state=tk.NORMAL)
+    
     def speech_generated(self, output_file):
         # Update status
         self.status_var.set("Speech generated successfully")
+        self.reset_status_color()  # Ensure normal text color
         
         # Clean up previous file if exists
         if self.current_audio_file and os.path.exists(self.current_audio_file):
