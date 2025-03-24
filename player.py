@@ -10,6 +10,8 @@ import pygame
 from pygame import mixer
 from mutagen.mp3 import MP3
 from gtts import gTTS
+import re
+
 
 class TextToSpeechApp:
     def __init__(self, root):
@@ -59,7 +61,7 @@ class TextToSpeechApp:
         self.auto_generate = tk.BooleanVar(value=False)
         
         # Speech rate
-        self.speech_rate = tk.IntVar(value=50)  # Default to medium rate
+        self.speech_rate = tk.IntVar(value=40)  # Default to medium rate
         
         # Text modification tracking
         self.last_text = ""
@@ -244,6 +246,7 @@ class TextToSpeechApp:
             # Set the variable to the rounded value
             self.speech_rate.set(rounded_value)
             
+        
         # Rate slider
         rate_slider = ttk.Scale(rate_frame, 
                                from_=0, 
@@ -279,6 +282,18 @@ class TextToSpeechApp:
         clear_button = ttk.Button(text_controls_frame, text="Clear Text", command=self.clear_text, cursor='hand2', style='Small.TButton')
         clear_button.pack(side=tk.LEFT, padx=ButtonXPadding)
         
+        # Paste button - NEW
+        paste_button = ttk.Button(text_controls_frame, text="Paste", command=self.paste_text, cursor='hand2', style='Small.TButton')
+        paste_button.pack(side=tk.LEFT, padx=ButtonXPadding)
+        
+        # Clear Unicode button - NEW
+        clear_unicode_button = ttk.Button(text_controls_frame, text="Clear Unicode", command=self.clear_unicode, cursor='hand2', style='Small.TButton')
+        clear_unicode_button.pack(side=tk.LEFT, padx=ButtonXPadding)
+        
+        # Markdown to Text button - NEW
+        markdown_button = ttk.Button(text_controls_frame, text="Markdown to Text", command=self.clear_markdown, cursor='hand2', style='Small.TButton')
+        markdown_button.pack(side=tk.LEFT, padx=ButtonXPadding)
+        
         # Auto-generate checkbox
         auto_generate_check = ttk.Checkbutton(
             text_controls_frame, 
@@ -298,7 +313,7 @@ class TextToSpeechApp:
             fg=self.dark_text,
             insertbackground=self.dark_text,  # Cursor color
             selectbackground=self.accent_color,
-            selectforeground=self.dark_text
+            selectforeground="black"  # Changed from self.dark_text to "black"
         )
         self.text_area.pack(fill=tk.BOTH, expand=True, padx=ButtonXPadding, pady=ButtonYPadding)
         
@@ -321,6 +336,8 @@ class TextToSpeechApp:
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(player_frame, orient="horizontal", length=300, mode="determinate", variable=self.progress_var)
         self.progress_bar.pack(fill=tk.X, padx=ButtonXPadding, pady=ButtonYPadding)
+        
+        self.progress_bar.bind("<Button-1>", self.progress_bar_click)
         
         # Time display
         time_frame = ttk.Frame(player_frame)
@@ -347,6 +364,272 @@ class TextToSpeechApp:
         self.status_var.set("Ready. Select a voice and enter text.")
         self.status_label = tk.Label(main_frame, textvariable=self.status_var, bg=self.dark_bg, fg=self.dark_text)
         self.status_label.pack(pady=ButtonYPadding)
+    
+    
+    
+    
+    
+    def progress_bar_click(self, event):
+        """Handle click on progress bar to seek to a specific position"""
+        if not self.current_audio_file or self.audio_length <= 0:
+            return
+            
+        # Calculate the relative position of the click
+        progress_width = self.progress_bar.winfo_width()
+        click_position = event.x / progress_width
+        
+        # Calculate the target time in seconds
+        target_seconds = click_position * self.audio_length
+        
+        # Update the progress bar
+        progress = (target_seconds / self.audio_length) * 100
+        self.progress_var.set(progress)
+        
+        # Update time display
+        mins, secs = divmod(int(target_seconds), 60)
+        self.current_time.configure(text=f"{mins}:{secs:02d}")
+        
+        # Seek to the new position
+        self.seek_to_position(target_seconds)
+
+    def seek_to_position(self, target_seconds):
+        """Seek to a specific position in the audio using pydub to slice the audio file"""
+        if not self.current_audio_file:
+            return
+        
+        was_playing = self.is_playing
+        
+        # Stop current playback
+        if self.is_playing:
+            mixer.music.stop()
+            self.is_playing = False
+        
+        try:
+            # For pygame's mixer, we need to convert target_seconds to milliseconds
+            # Load the audio file
+            mixer.music.load(self.current_audio_file)
+            
+            # Set the start time to account for seeking
+            self.start_time = time.time() - target_seconds
+            self.paused_pos = target_seconds
+            
+            # Resume playing if it was playing before
+            if was_playing:
+                # Try to play from position - this works in some pygame versions and formats
+                try:
+                    mixer.music.play(start=target_seconds)
+                    self.is_playing = True
+                    self.play_button.configure(text="Pause")
+                    
+                    # Restart progress updates
+                    self.update_progress()
+                except:
+                    # Fallback: play from beginning but adjust our tracking variables
+                    mixer.music.play()
+                    self.is_playing = True
+                    self.play_button.configure(text="Pause")
+                    
+                    # Restart progress updates
+                    self.update_progress()
+            
+        except Exception as e:
+            self.display_error(f"Error seeking: {str(e)}")
+            print(f"Error seeking: {str(e)}")
+    
+    
+    
+    
+    
+    def paste_text(self):
+        """Paste text from clipboard into the text area"""
+        try:
+            # Get clipboard content
+            clipboard_text = self.root.clipboard_get()
+            
+            # Insert at current cursor position or at the end if no selection
+            if self.text_area.tag_ranges("sel"):
+                # Replace selected text
+                self.text_area.delete("sel.first", "sel.last")
+                self.text_area.insert("insert", clipboard_text)
+            else:
+                # Just insert at current position
+                self.text_area.insert("insert", clipboard_text)
+                
+            # Update status
+            self.status_var.set("Text pasted from clipboard")
+            self.reset_status_color()
+            
+            # Update last text to track changes
+            self.last_text = self.text_area.get("1.0", tk.END).strip()
+            
+            # Auto-generate if enabled
+            if self.auto_generate.get() and clipboard_text.strip():
+                # Set a small delay before generating
+                self.text_modified_timer = self.root.after(500, self.generate_speech)
+                
+        except tk.TclError:
+            # Error when clipboard is empty or contains non-text data
+            self.display_error("No text available in clipboard")
+    
+    
+    def clear_markdown(self):
+        """Remove markdown formatting characters from the text while preserving newlines and handling code blocks properly"""
+        # Get current text
+        current_text = self.text_area.get("1.0", tk.END)
+        
+        # Process text line by line to better preserve newlines
+        lines = current_text.splitlines(True)  # Keep the newlines
+        cleaned_lines = []
+        
+        in_code_block = False
+        code_indent = ""
+        
+        
+        
+        for line in lines:
+            # Check for code block start/end
+            if re.match(r'^\s*```[a-zA-Z0-9_]*\s*$', line):
+                # Toggle code block state
+                in_code_block = not in_code_block
+                # If starting a code block, store the current indentation
+                if in_code_block:
+                    code_indent = re.match(r'^(\s*)', line).group(1)
+                continue  # Skip the code block markers
+            
+            if in_code_block:
+                # Inside code block - preserve exactly as is, just add consistent indentation
+                cleaned_lines.append(line)
+                continue
+            
+            
+            
+            # Remove markdown headers (### Header)
+            cleaned_line = re.sub(r'^\s*#{1,6}\s+', '', line)
+            
+            cleaned_line = cleaned_line.replace('*.', 'DOUBLE_ASTERISK_MARKER')
+            
+            # Replace bullet points with newlines
+            if re.match(r'^\s*[-]\s+', cleaned_line):
+                indentation = re.match(r'^(\s*)', cleaned_line).group(1)
+                content = re.sub(r'^\s*[-]\s+', '', cleaned_line)
+                # Add a newline before the content (except for the first bullet point)
+                if cleaned_lines:
+                    cleaned_lines.append('\n' + indentation + content)
+                else:
+                    cleaned_lines.append(indentation + content)
+                continue
+                
+            # Remove numbered lists but keep content
+            cleaned_line = re.sub(r'^\s*\d+\.\s+', '', cleaned_line)
+            
+            # Remove emphasis markers (* and _)
+            cleaned_line = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned_line)  # Bold
+            cleaned_line = re.sub(r'\*([^*]+)\*', r'\1', cleaned_line)      # Italic
+            cleaned_line = re.sub(r'__([^_]+)__', r'\1', cleaned_line)      # Bold
+            cleaned_line = re.sub(r'_([^_]+)_', r'\1', cleaned_line)        # Italic
+            
+            # Remove inline code (backticks)
+            cleaned_line = re.sub(r'`([^`]+)`', r'\1', cleaned_line)
+            
+            # Remove blockquotes
+            cleaned_line = re.sub(r'^\s*>\s+', '', cleaned_line)
+            
+            # Remove horizontal rules
+            if re.match(r'^\s*[-*_]{3,}\s*$', cleaned_line):
+                cleaned_line = ''
+            
+            # Remove link syntax
+            cleaned_line = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', cleaned_line)
+            
+            # Remove image syntax
+            cleaned_line = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', cleaned_line)
+            
+            cleaned_line = cleaned_line.replace('DOUBLEASTERISKMARKER', '*.')
+            
+            cleaned_lines.append(cleaned_line)
+            
+            
+        
+        # Join all lines back together, preserving original newlines
+        cleaned_text = ''.join(cleaned_lines)
+        
+        # Remove any remaining ** and ` characters
+        
+        #cleaned_text = cleaned_text.replace('*.', 'DOUBLE_ASTERISK_MARKER')
+        #cleaned_text = cleaned_text.replace('*', '')
+        cleaned_text = cleaned_text.replace('DOUBLE_ASTERISK_MARKER', '*.')
+        cleaned_text = cleaned_text.replace('`', '')
+        
+        # Replace <script> and </script> tags with newlines
+        cleaned_text = re.sub(r'<script\b[^>]*>', '\n', cleaned_text)
+        cleaned_text = re.sub(r'</script>', '\n', cleaned_text)
+        
+        # Clear and insert cleaned text
+        self.text_area.delete("1.0", tk.END)
+        self.text_area.insert("1.0", cleaned_text)
+        
+        # Update status
+        self.status_var.set("Markdown formatting removed")
+        self.reset_status_color()
+        
+        # Update last text to prevent auto-generation if enabled
+        self.last_text = cleaned_text
+    
+    
+    
+    def clear_unicode(self):
+        """Clear Unicode emojis from the text area"""
+        # Get current text
+        current_text = self.text_area.get("1.0", tk.END)
+        
+        
+        # Use a regex to remove emojis and other unicode characters
+        # This pattern matches emojis and other special unicode characters
+        emoji_pattern = re.compile(
+            "["
+            "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+            "\U0001F300-\U0001F5FF"  # symbols & pictographs
+            "\U0001F600-\U0001F64F"  # emoticons
+            "\U0001F680-\U0001F6FF"  # transport & map symbols
+            "\U0001F700-\U0001F77F"  # alchemical symbols
+            "\U0001F780-\U0001F7FF"  # Geometric Shapes
+            "\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
+            "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+            "\U0001FA00-\U0001FA6F"  # Chess Symbols
+            "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+            "\U00002702-\U000027B0"  # Dingbats
+            "\U000024C2-\U0000254E"  # enclosed characters
+            "\U0000FE0F"             # VS16
+            "\U0000200D"             # Zero Width Joiner
+            "\U0000203C-\U00002049"  # Exclamation and Question Marks
+            "\U000020D0-\U0000214F"  # Combining marks and letterlike symbols
+            "\U00002190-\U00002199"  # Arrows
+            "\U000021A9-\U000021AA"  # Arrows with hook
+            "\U00002300-\U000023FF"  # Miscellaneous Technical
+            "\U00002500-\U000025FF"  # Box Drawing and Geometric Shapes
+            "\U00002600-\U000026FF"  # Miscellaneous Symbols
+            "\U0000270C-\U0000270D"  # Victory Hand
+            "⏰⏱⏲⏳✅❌❓❗"          # Common special emojis
+            "⌚⌛⏩⏪⏫⏬⏭⏮⏯⭐"        # More common special emojis
+            "〰〽"                    # Wavy dash and part alternation mark
+            "]+", flags=re.UNICODE)
+        
+        # Replace emojis with empty string
+        cleaned_text = emoji_pattern.sub(r'', current_text)
+        
+        # Clear and insert cleaned text
+        self.text_area.delete("1.0", tk.END)
+        self.text_area.insert("1.0", cleaned_text)
+        
+        # Update status
+        self.status_var.set("Unicode emojis removed")
+        self.reset_status_color()
+        
+        
+        # Update last text to prevent auto-generation if enabled
+        self.last_text = cleaned_text
+    
+    
     
     def navigate_voice_up(self):
         """Navigate to the previous voice in the dropdown"""
@@ -578,36 +861,42 @@ class TextToSpeechApp:
     def toggle_play(self):
         if not self.current_audio_file:
             return
-            
+
         if self.is_playing:
             # Pause playback
             mixer.music.pause()
             self.play_button.configure(text="Play")
             self.is_playing = False
-            
-            # Save current position for proper progress tracking
+            # Save current position for progress tracking
             self.paused_pos = time.time() - self.start_time
-            
             # Cancel progress updates
-            if self.progress_update_id:
+            if hasattr(self, 'progress_update_id') and self.progress_update_id:
                 self.root.after_cancel(self.progress_update_id)
                 self.progress_update_id = None
         else:
             # Resume or start playback
-            if self.paused_pos > 0:  # If paused
-                mixer.music.unpause()
-                # Update start time to account for paused duration
+            if self.paused_pos > 0:  # If paused, resume from the same position
+                #mixer.music.unpause()
+                #mixer.music.load(self.current_audio_file)
+                mixer.music.play()
+                time.sleep(0.1)  # Small delay to allow playback to start
+                mixer.music.set_pos(self.paused_pos) 
+    
+                self.play_button.configure(text="Pause")
+                self.is_playing = True
+                # Adjust start_time to account for the already played time
                 self.start_time = time.time() - self.paused_pos
-            else:  # Start from beginning
+                self.paused_pos = 0  # Reset paused position
+                # Restart progress updates
+                self.update_progress()
+            else:  # Start from the beginning
                 mixer.music.load(self.current_audio_file)
                 mixer.music.play()
                 self.start_time = time.time()
-                
-            self.play_button.configure(text="Pause")
-            self.is_playing = True
-            
-            # Restart progress updates
-            self.update_progress()
+                self.is_playing = True
+                self.play_button.configure(text="Pause")
+                # Restart progress updates
+                self.update_progress()
     
     def stop_audio(self):
         if not self.current_audio_file:
