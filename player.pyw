@@ -637,9 +637,22 @@ class TextToSpeechApp:
         # Replace emojis with empty string
         cleaned_text = emoji_pattern.sub(r'', current_text)
         
+        # Remove all https:// URLs
+        #url_pattern = re.compile(r'https?://\S+')
+        #cleaned_text = url_pattern.sub(r'', cleaned_text)
+        
+        # Improved URL cleaning - removes https:// but keeps domain
+        url_pattern = re.compile(r'https?://([^\s/]+)')
+        cleaned_text = url_pattern.sub(r'\1', cleaned_text)  # Replace with just the domain
+        
+        # Remove all forward slashes
+        cleaned_text = cleaned_text.replace('/', '')
+        
         # Clear and insert cleaned text
         self.text_area.delete("1.0", tk.END)
         self.text_area.insert("1.0", cleaned_text)
+        
+        
         
         # Update status
         self.status_var.set("Unicode emojis removed")
