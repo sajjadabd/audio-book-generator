@@ -173,17 +173,27 @@ class TextToSpeechApp:
         settings_frame = ttk.LabelFrame(main_frame, text="Voice Settings", padding="5")
         settings_frame.pack(fill=tk.X, pady=5)
         
-        # Voice dropdown
+        # Voice dropdown with navigation buttons
         voice_frame = ttk.Frame(settings_frame)
         voice_frame.pack(fill=tk.X, pady=2)
         
         ttk.Label(voice_frame, text="Select Voice:").pack(side=tk.LEFT, padx=5)
         
         self.voice_var = tk.StringVar()
-        voice_dropdown = ttk.Combobox(voice_frame, textvariable=self.voice_var, state="readonly", width=30)
-        voice_dropdown['values'] = list(self.voices.keys())
-        voice_dropdown.current(0)
-        voice_dropdown.pack(side=tk.LEFT, padx=5)
+        self.voice_dropdown = ttk.Combobox(voice_frame, textvariable=self.voice_var, state="readonly", width=30)
+        self.voice_dropdown['values'] = list(self.voices.keys())
+        self.voice_dropdown.current(0)
+        self.voice_dropdown.pack(side=tk.LEFT, padx=5)
+        
+        # Add up and down buttons for voice navigation
+        nav_buttons_frame = ttk.Frame(voice_frame)
+        nav_buttons_frame.pack(side=tk.LEFT, padx=2)
+        
+        up_button = ttk.Button(nav_buttons_frame, text="▲", width=2, command=self.navigate_voice_up)
+        up_button.pack(side=tk.TOP, pady=1)
+        
+        down_button = ttk.Button(nav_buttons_frame, text="▼", width=2, command=self.navigate_voice_down)
+        down_button.pack(side=tk.BOTTOM, pady=1)
         
         # Speech rate control
         rate_frame = ttk.Frame(settings_frame)
@@ -304,6 +314,32 @@ class TextToSpeechApp:
         self.status_label = tk.Label(main_frame, textvariable=self.status_var, bg=self.dark_bg, fg=self.dark_text)
         self.status_label.pack(pady=5)
     
+    def navigate_voice_up(self):
+        """Navigate to the previous voice in the dropdown"""
+        values = self.voice_dropdown['values']
+        if not values:
+            return
+            
+        current_idx = self.voice_dropdown.current()
+        if current_idx > 0:
+            self.voice_dropdown.current(current_idx - 1)
+            # Update status with new selection
+            self.status_var.set(f"Selected voice: {self.voice_var.get()}")
+            self.reset_status_color()
+    
+    def navigate_voice_down(self):
+        """Navigate to the next voice in the dropdown"""
+        values = self.voice_dropdown['values']
+        if not values:
+            return
+            
+        current_idx = self.voice_dropdown.current()
+        if current_idx < len(values) - 1:
+            self.voice_dropdown.current(current_idx + 1)
+            # Update status with new selection
+            self.status_var.set(f"Selected voice: {self.voice_var.get()}")
+            self.reset_status_color()
+    
     def clear_text(self):
         """Clear the text area"""
         self.text_area.delete("1.0", tk.END)
@@ -370,6 +406,22 @@ class TextToSpeechApp:
         # Get speech rate
         rate_value = self.speech_rate.get()
         rate_str = f"{rate_value}%"
+        
+        # Get the current directory
+        current_folder = os.getcwd()
+
+        # Iterate over files in the current folder
+        deleted_files = 0
+        for filename in os.listdir(current_folder):
+            # Check if the file ends with .mp3
+            if filename.endswith(".mp3"):
+                file_path = os.path.join(current_folder, filename)
+                try:
+                    os.remove(file_path)
+                    deleted_files += 1
+                    print(f"Deleted: {filename}")
+                except Exception as e:
+                    print(f"Failed to delete {filename}: {e}")
         
         # Generate audio in a separate thread
         threading.Thread(target=self.generate_speech_thread, args=(text, selected_voice, rate_str)).start()
