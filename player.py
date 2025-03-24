@@ -484,8 +484,6 @@ class TextToSpeechApp:
         in_code_block = False
         code_indent = ""
         
-        
-        
         for line in lines:
             # Check for code block start/end
             if re.match(r'^\s*```[a-zA-Z0-9_]*\s*$', line):
@@ -501,17 +499,31 @@ class TextToSpeechApp:
                 cleaned_lines.append(line)
                 continue
             
+            # Check if line starts with a number (e.g., "1. Item") or hyphen (e.g., "- Item")
+            if re.match(r'^\s*\d+\.\s+', line) or re.match(r'^\s*-\s+', line):
+                # Remove markdown list formatting but keep content
+                cleaned_line = re.sub(r'^\s*\d+\.\s+', '', line)  # Remove numbered list
+                cleaned_line = re.sub(r'^\s*-\s+', '', cleaned_line)  # Remove bullet point
+                # Add newline at the end if not already present
+                #if not cleaned_line.endswith('\n'):
+                cleaned_line += '\n'
+                cleaned_lines.append(cleaned_line)
+                continue
             
-            
-            # Remove markdown headers (### Header)
-            cleaned_line = re.sub(r'^\s*#{1,6}\s+', '', line)
-            
-            cleaned_line = cleaned_line.replace('*.', 'DOUBLE_ASTERISK_MARKER')
-            
+            # Check if line contains markdown header
+            if re.match(r'^\s*#{1,6}\s+', line):
+                # Remove markdown headers (### Header)
+                cleaned_line = re.sub(r'^\s*#{1,6}\s+', '', line)
+                # Add newline at the end if not already present
+                #if not cleaned_line.endswith('\n'):
+                cleaned_line += '\n'
+                cleaned_lines.append(cleaned_line)
+                continue
+                
             # Replace bullet points with newlines
-            if re.match(r'^\s*[-]\s+', cleaned_line):
-                indentation = re.match(r'^(\s*)', cleaned_line).group(1)
-                content = re.sub(r'^\s*[-]\s+', '', cleaned_line)
+            if re.match(r'^\s*[-]\s+', line):
+                indentation = re.match(r'^(\s*)', line).group(1)
+                content = re.sub(r'^\s*[-]\s+', '', line)
                 # Add a newline before the content (except for the first bullet point)
                 if cleaned_lines:
                     cleaned_lines.append('\n' + indentation + content)
@@ -520,7 +532,7 @@ class TextToSpeechApp:
                 continue
                 
             # Remove numbered lists but keep content
-            cleaned_line = re.sub(r'^\s*\d+\.\s+', '', cleaned_line)
+            cleaned_line = re.sub(r'^\s*\d+\.\s+', '', line)
             
             # Remove emphasis markers (* and _)
             cleaned_line = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned_line)  # Bold
@@ -544,20 +556,13 @@ class TextToSpeechApp:
             # Remove image syntax
             cleaned_line = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', cleaned_line)
             
-            cleaned_line = cleaned_line.replace('DOUBLEASTERISKMARKER', '*.')
-            
             cleaned_lines.append(cleaned_line)
-            
-            
         
         # Join all lines back together, preserving original newlines
         cleaned_text = ''.join(cleaned_lines)
         
         # Remove any remaining ** and ` characters
-        
-        #cleaned_text = cleaned_text.replace('*.', 'DOUBLE_ASTERISK_MARKER')
-        #cleaned_text = cleaned_text.replace('*', '')
-        cleaned_text = cleaned_text.replace('DOUBLE_ASTERISK_MARKER', '*.')
+        cleaned_text = cleaned_text.replace('**', '')
         cleaned_text = cleaned_text.replace('`', '')
         
         # Replace <script> and </script> tags with newlines
