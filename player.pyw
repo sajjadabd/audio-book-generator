@@ -33,6 +33,7 @@ class TextToSpeechApp:
         # Define custom fonts
         self.custom_font = ("Ubuntu", 8, "bold")
         self.small_font = ("Ubuntu", 8, "bold")
+        self.textarea_font = ("Consolas", 12, "bold")
         
         # Set dark theme colors
         self.dark_bg = "#1e1e1e"
@@ -72,6 +73,9 @@ class TextToSpeechApp:
         # Text modification tracking
         self.last_text = ""
         self.text_modified_timer = None
+        
+        # Text area font size
+        self.text_font_size = 12  # Default font size
         
         # Edge TTS voices - Using predefined list of voices
         self.voices = {
@@ -136,6 +140,9 @@ class TextToSpeechApp:
         
         # Create UI elements
         self.create_widgets()
+        
+        # Bind Ctrl+MouseWheel event
+        self.text_area.bind("<Control-MouseWheel>", self.on_ctrl_scroll)
     
     def setup_styles(self):
         """Set up ttk styles for dark theme"""
@@ -147,6 +154,8 @@ class TextToSpeechApp:
         # Create and configure named fonts
         default_font = font.nametofont("TkDefaultFont")
         default_font.configure(family="Ubuntu", size=12)
+        
+        
         
         # Configure frame styles
         style.configure("TFrame", background=self.dark_bg)
@@ -216,6 +225,24 @@ class TextToSpeechApp:
         
         # Small button style
         style.configure('Small.TButton', padding=(2, 0))
+    
+    
+    
+    def on_ctrl_scroll(self, event):
+        """Handle Ctrl+MouseWheel to change font size"""
+        if event.delta > 0:  # Scroll up - increase font size
+            self.text_font_size = min(36, self.text_font_size + 1)  # Cap at 36
+        else:  # Scroll down - decrease font size
+            self.text_font_size = max(8, self.text_font_size - 1)  # Minimum 8
+        
+        # Update the font
+        self.text_area.configure(font=("Consolas", self.text_font_size))
+        
+        # Update status
+        self.status_var.set(f"Font size: {self.text_font_size}pt")
+        self.reset_status_color()
+    
+    
     
     def create_widgets(self):
         ButtonXPadding = 4
@@ -335,9 +362,11 @@ class TextToSpeechApp:
             fg=self.dark_text,
             insertbackground=self.dark_text,  # Cursor color
             selectbackground=self.accent_color,
-            selectforeground="black"  # Changed from self.dark_text to "black"
+            selectforeground="black",  # Changed from self.dark_text to "black"
+            font=self.textarea_font
         )
         self.text_area.pack(fill=tk.BOTH, expand=True, padx=ButtonXPadding, pady=ButtonYPadding)
+        self.text_area.pack_propagate(False) 
         
         # Configure scrollbar colors
         self.text_area.config(highlightbackground=self.dark_secondary_bg, 
@@ -662,11 +691,11 @@ class TextToSpeechApp:
         
         # Improved URL cleaning - removes https:// but keeps domain
         url_pattern = re.compile(r'https?://([^\s/]+)')
-        cleaned_text = url_pattern.sub(r'\1', cleaned_text)  # Replace with just the domain
+        cleaned_text = url_pattern.sub(r'https \1', cleaned_text)  # Replace with just the domain
         
         # Remove all file:// URLs completely
-        file_url_pattern = re.compile(r'file://\S*')
-        cleaned_text = file_url_pattern.sub(r'', cleaned_text)
+        file_url_pattern = re.compile(r'file://([^\s/]+)')
+        cleaned_text = file_url_pattern.sub(r'file \1', cleaned_text)
         
         # Remove all forward slashes
         cleaned_text = cleaned_text.replace('/', '')
