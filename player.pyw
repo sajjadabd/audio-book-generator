@@ -31,8 +31,8 @@ class TextToSpeechApp:
         self.root.resizable(True, True)
         
         # Define custom fonts
-        self.custom_font = ("Ubuntu", 8)
-        self.small_font = ("Ubuntu", 8)
+        self.custom_font = ("Ubuntu", 8, "bold")
+        self.small_font = ("Ubuntu", 8, "bold")
         
         # Set dark theme colors
         self.dark_bg = "#1e1e1e"
