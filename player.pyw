@@ -530,14 +530,15 @@ class TextToSpeechApp:
         in_code_block = False
         
         for line in lines:
-            # Check for code block start/end
-            if re.match(r'^\s*```[a-zA-Z0-9_]*\s*$', line):
+            # Check for code block start with language identifier
+            code_block_match = re.match(r'^\s*```([a-zA-Z0-9_]*)\s*$', line)
+            if code_block_match:
                 if in_code_block:
                     # End of code block - add marker but no content
                     cleaned_lines.append('```\n')
                 else:
-                    # Start of code block - add marker but skip content
-                    cleaned_lines.append(line)
+                    # Start of code block - add marker without language identifier
+                    cleaned_lines.append('```\n')
                 in_code_block = not in_code_block
                 continue
             
@@ -545,13 +546,13 @@ class TextToSpeechApp:
                 # Skip all content within code blocks
                 continue
             
-            # Remove all parentheses and their content
+            # Rest of the function remains the same as in the original implementation
+            # Remove parentheses and their content
             line = re.sub(r'\([^)]*\)', '', line)
             
             # Remove markdown headers (### Header) and add newline
             if re.match(r'^\s*#{1,6}\s+', line):
                 cleaned_line = re.sub(r'^\s*#{1,6}\s+', '', line)
-                #if not cleaned_line.endswith('\n'):
                 cleaned_line += '\n'
                 cleaned_lines.append(cleaned_line)
                 continue
@@ -560,7 +561,6 @@ class TextToSpeechApp:
             if re.match(r'^\s*\d+\.\s+', line) or re.match(r'^\s*-\s+', line):
                 cleaned_line = re.sub(r'^\s*\d+\.\s+', '', line)  # Remove numbered list
                 cleaned_line = re.sub(r'^\s*-\s+', '', cleaned_line)  # Remove bullet point
-                #if not cleaned_line.endswith('\n'):
                 cleaned_line += '\n'
                 cleaned_lines.append(cleaned_line)
                 continue
