@@ -76,6 +76,12 @@ class TextToSpeechApp:
         # Edge TTS voices - Using predefined list of voices
         self.voices = {
             # United States (English)
+            "US Male (Andrew)": "en-US-AndrewNeural",
+            "UK Female (Sonia)": "en-GB-SoniaNeural",
+            "UK Female (Mia)": "en-GB-MiaNeural",
+            "UK Male (Ryan)": "en-GB-RyanNeural",
+            "New Zealand Female (Molly)": "en-NZ-MollyNeural",
+            
             "US Female (Jenny)": "en-US-JennyNeural",
             "US Female (Aria)": "en-US-AriaNeural",
             "US Female (Ana)": "en-US-AnaNeural",
@@ -85,14 +91,14 @@ class TextToSpeechApp:
             "US Male (Davis)": "en-US-DavisNeural",
             "US Male (Jason)": "en-US-JasonNeural",
             "US Male (Tony)": "en-US-TonyNeural",
-            "US Male (Andrew)": "en-US-AndrewNeural",
+            
             
             # United Kingdom (English)
-            "UK Female (Sonia)": "en-GB-SoniaNeural",
+            
             "UK Female (Libby)": "en-GB-LibbyNeural",
-            "UK Female (Mia)": "en-GB-MiaNeural",
+            
             "UK Female (Abbie)": "en-GB-AbbieNeural",
-            "UK Male (Ryan)": "en-GB-RyanNeural",
+            
             "UK Male (Thomas)": "en-GB-ThomasNeural",
             
             # Australia (English)
@@ -110,7 +116,7 @@ class TextToSpeechApp:
             "German Female (Katja)": "de-DE-KatjaNeural",
             "German Male (Conrad)": "de-DE-ConradNeural",
             
-            "New Zealand Female (Molly)": "en-NZ-MollyNeural",
+            
             "New Zealand Male (Mitchell)": "en-NZ-MitchellNeural",
             
             # Spanish
@@ -594,6 +600,7 @@ class TextToSpeechApp:
         
         # Final cleanup
         cleaned_text = cleaned_text.replace('**', '')
+        cleaned_text = cleaned_text.replace('*', '')
         cleaned_text = cleaned_text.replace('`', '')
         
         # Clear and insert cleaned text
@@ -656,6 +663,10 @@ class TextToSpeechApp:
         # Improved URL cleaning - removes https:// but keeps domain
         url_pattern = re.compile(r'https?://([^\s/]+)')
         cleaned_text = url_pattern.sub(r'\1', cleaned_text)  # Replace with just the domain
+        
+        # Remove all file:// URLs completely
+        file_url_pattern = re.compile(r'file://\S*')
+        cleaned_text = file_url_pattern.sub(r'', cleaned_text)
         
         # Remove all forward slashes
         cleaned_text = cleaned_text.replace('/', '')
