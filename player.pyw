@@ -30,6 +30,11 @@ class TextToSpeechApp:
         
         self.root.resizable(True, True)
         
+        self.background_music = None
+        self.play_background_music = tk.BooleanVar(value=False)
+        
+        self.directory_name = os.path.dirname(os.path.abspath(__file__))
+        
         # Define custom fonts
         self.custom_font = ("Ubuntu", 8, "bold")
         self.small_font = ("Ubuntu", 8, "bold")
@@ -140,6 +145,7 @@ class TextToSpeechApp:
         
         # Create UI elements
         self.create_widgets()
+        self.create_menu()
         
         # Bind Ctrl+MouseWheel event
         self.text_area.bind("<Control-MouseWheel>", self.on_ctrl_scroll)
@@ -243,6 +249,32 @@ class TextToSpeechApp:
         self.reset_status_color()
     
     
+    
+    
+    
+    def create_menu(self):
+        """Create the menu bar with File menu"""
+        menubar = tk.Menu(self.root)
+        
+        # File menu
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Exit", command=self.root.quit)
+        
+        menubar.add_cascade(label="File", menu=file_menu)
+        
+        
+        # Options menu
+        options_menu = tk.Menu(menubar, tearoff=0)
+                              #bg=self.dark_secondary_bg,
+                              #fg=self.dark_text,
+                              #activebackground=self.accent_color,
+                              #activeforeground="black")
+        options_menu.add_checkbutton(label="Play Background Music", 
+                                    variable=self.play_background_music,
+                                    command=self.toggle_background_music)
+        menubar.add_cascade(label="Options", menu=options_menu)
+        
+        self.root.config(menu=menubar)
     
     def create_widgets(self):
         ButtonXPadding = 4
@@ -858,6 +890,9 @@ class TextToSpeechApp:
         self.status_label.config(fg=self.dark_text)
         
     def generate_speech(self):
+    
+        self.play_background_music.set(False)
+        
         # Disable generate button during generation
         for widget in self.root.winfo_children():
             if isinstance(widget, ttk.Button):
@@ -947,6 +982,84 @@ class TextToSpeechApp:
         for widget in self.root.winfo_children():
             if isinstance(widget, ttk.Button):
                 widget.configure(state=tk.NORMAL)
+    
+    
+    
+    def toggle_background_music(self):
+        """Toggle background music on/off"""
+        
+        background_music_boolean = self.play_background_music.get()
+
+        if background_music_boolean :
+            # Start playing background music
+            try:
+                
+                if self.background_music:
+                    self.background_music.stop()
+
+                # Check paths
+                tinnitus_folder = os.path.join(self.directory_name, "tinnitus")
+                music_path = os.path.join(tinnitus_folder, "relaxing_noise.mp3")
+                
+                if not os.path.exists(tinnitus_folder):
+                    raise FileNotFoundError("'tinnitus' folder not found")
+                
+                if not os.path.exists(music_path):
+                    raise FileNotFoundError("'relaxing_noise.mp3' not found in tinnitus folder")
+                
+                self.current_audio_file = music_path
+                
+                # Get accurate audio length using mutagen
+                try:
+                    audio = MP3(self.current_audio_file)
+                    self.audio_length = audio.info.length
+                    
+                    # Update total time display
+                    mins, secs = divmod(int(self.audio_length), 60)
+                    self.total_time.configure(text=f" {mins}:{secs:02d}")
+                except Exception as e:
+                    print(f"Error getting audio length: {e}")
+                    self.audio_length = 30  # Fallback to default
+                
+                # Enable player controls
+                self.play_button.configure(state=tk.NORMAL)
+                self.stop_button.configure(state=tk.NORMAL)
+                
+                # Enable the generate button again
+                for widget in self.root.winfo_children():
+                    if isinstance(widget, ttk.Button):
+                        widget.configure(state=tk.NORMAL)
+                        
+                        
+                self.play_audio()
+                
+                # Stop any currently playing background music
+                
+                
+                # Load and play background music
+                #self.background_music = pygame.mixer.Sound(music_path)
+                # Set volume before playing
+                #self.background_music.set_volume(0.3)
+                # Play in infinite loop
+                #self.background_music.play(loops=-1)
+                
+                self.status_var.set("Background music started")
+                
+            except Exception as e:
+                self.play_background_music.set(False)
+                self.display_error(f"Could not play background music: {str(e)}")
+        else:
+            # Stop background music
+            
+            self.stop_audio()
+            #self.background_music = None
+            self.current_audio_file = None
+            self.is_playing = False
+            self.status_var.set("Background music stopped")
+        
+        self.reset_status_color()
+    
+    
     
     def speech_generated(self, output_file):
         # Update status
