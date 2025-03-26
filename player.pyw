@@ -645,6 +645,7 @@ class TextToSpeechApp:
     
     
     
+    
     def clear_unicode(self):
         """Clear Unicode emojis from the text area"""
         # Get current text
@@ -697,8 +698,79 @@ class TextToSpeechApp:
         file_url_pattern = re.compile(r'file://([^\s/]+)')
         cleaned_text = file_url_pattern.sub(r'file \1', cleaned_text)
         
+        
+        """
+        acronyms = {
+            'CSRF': 'C S R F',
+            'SQL': 'S Q L',
+            'XSS': 'X S S',
+            'XXE': 'X X E',
+            'SSRF': 'S S R F',
+            'RCE': 'R C E',
+            'LFI': 'L F I',
+            'RFI': 'R F I'
+        }
+        
+        # Create a regex pattern that matches these acronyms as whole words
+        acronym_pattern = re.compile(r'\b(' + '|'.join(re.escape(acronym) for acronym in acronyms.keys()) + r')\b')
+        
+        # Replace each acronym with its spaced-out version
+        cleaned_text = acronym_pattern.sub(lambda match: acronyms[match.group(0)], cleaned_text)
+        """
+        
+        
+        # Define the words to split (case-insensitive)
+        words_to_split = [
+            "SQL", 
+            "CSRF", 
+            "XSS", 
+            "XXE", 
+            "SSRF", 
+            "RCE", 
+            "LFI", 
+            "RFI" , 
+            "CSP" , 
+            "SOP" , 
+            "CSPT" , 
+            "CVE" , 
+            "CWE" , 
+            "CSV" , 
+            "HTTP",
+            "HTTPS",
+        ]
+        
+        # Build a regex pattern to match these words as whole words
+        split_pattern = re.compile(
+            r'\b(' + '|'.join(map(re.escape, words_to_split)) + r')\b',
+            flags=re.IGNORECASE
+        )
+        
+        # Replace matched words with spaced letters (e.g., "CSRF" → "C S R F")
+        def split_word(match):
+            return ' '.join(list(match.group(0).upper()))  # Ensure uppercase
+        
+        cleaned_text = split_pattern.sub(split_word, cleaned_text)
+        
+        
+        
+        
+        # Replace dots inside text but not at end of paragraphs
+        # Split text into lines to handle each line separately
+        lines = cleaned_text.split('\n')
+        processed_lines = []
+        for line in lines:
+            if line.endswith('.'):
+                # For lines ending with dot, process all but the last dot
+                main_part = line[:-1].replace('.', ' dot ')
+                processed_lines.append(main_part + '.')
+            else:
+                # For other lines, replace all dots
+                processed_lines.append(line.replace('.', ' dot '))
+        cleaned_text = '\n'.join(processed_lines)
+        
+        
         # Remove all forward slashes
-        cleaned_text = cleaned_text.replace('/', '')
+        #cleaned_text = cleaned_text.replace('/', '')
         
         # Clear and insert cleaned text
         self.text_area.delete("1.0", tk.END)
