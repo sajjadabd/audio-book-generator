@@ -652,6 +652,11 @@ class TextToSpeechApp:
         current_text = self.text_area.get("1.0", tk.END)
         
         
+        current_text = current_text.replace('(', '')
+        current_text = current_text.replace(')', '')
+        
+        
+        
         # Use a regex to remove emojis and other unicode characters
         # This pattern matches emojis and other special unicode characters
         emoji_pattern = re.compile(
@@ -737,6 +742,7 @@ class TextToSpeechApp:
             "CSV" , 
             "HTTP",
             "HTTPS",
+            "/etc/"
         ]
         
         # Build a regex pattern to match these words as whole words
@@ -754,19 +760,15 @@ class TextToSpeechApp:
         
         
         
-        # Replace dots inside text but not at end of paragraphs
-        # Split text into lines to handle each line separately
-        lines = cleaned_text.split('\n')
-        processed_lines = []
-        for line in lines:
-            if line.endswith('.'):
-                # For lines ending with dot, process all but the last dot
-                main_part = line[:-1].replace('.', ' dot ')
-                processed_lines.append(main_part + '.')
-            else:
-                # For other lines, replace all dots
-                processed_lines.append(line.replace('.', ' dot '))
-        cleaned_text = '\n'.join(processed_lines)
+        # NEW: Replace dots ONLY if not followed by space or at end of sentence
+        cleaned_text = re.sub(
+            r'\.(?!\s|$)',  # Dot NOT followed by space or end of line
+            ' dot ',
+            cleaned_text
+        )
+        
+        # Remove forward slashes (unchanged)
+        #cleaned_text = cleaned_text.replace('/', '')
         
         
         # Remove all forward slashes
