@@ -684,8 +684,15 @@ class TextToSpeechApp:
         current_text = self.text_area.get("1.0", tk.END)
         
         
-        current_text = current_text.replace('(', '')
+        current_text = current_text.replace('e.g.', ' \n for example ')
+        current_text = current_text.replace('i.e.', ' \n in other words ')
+        current_text = current_text.replace('(', '\n')
         current_text = current_text.replace(')', '')
+        current_text = current_text.replace('{', '')
+        current_text = current_text.replace('}', '')
+        current_text = current_text.replace('$', '')
+        current_text = current_text.replace('@', '')
+        current_text = current_text.replace('&', '')
         
         
         
@@ -728,8 +735,11 @@ class TextToSpeechApp:
         #cleaned_text = url_pattern.sub(r'', cleaned_text)
         
         # Improved URL cleaning - removes https:// but keeps domain
-        url_pattern = re.compile(r'https?://([^\s/]+)')
+        url_pattern = re.compile(r'https://([^\s/]+)')
         cleaned_text = url_pattern.sub(r'https \1', cleaned_text)  # Replace with just the domain
+        
+        url_pattern = re.compile(r'http://([^\s/]+)')
+        cleaned_text = url_pattern.sub(r'http \1', cleaned_text)  # Replace with just the domain
         
         # Remove all file:// URLs completely
         file_url_pattern = re.compile(r'file://([^\s/]+)')
@@ -759,7 +769,9 @@ class TextToSpeechApp:
         # Define the words to split (case-insensitive)
         words_to_split = [
             "SQL", 
+            "DOM", 
             "CSRF", 
+            "XSRF", 
             "XSS", 
             "XXE", 
             "SSRF", 
@@ -774,7 +786,8 @@ class TextToSpeechApp:
             "CSV" , 
             "HTTP",
             "HTTPS",
-            "/etc/"
+            "/etc/",
+            "DoS"
         ]
         
         # Build a regex pattern to match these words as whole words
@@ -796,6 +809,13 @@ class TextToSpeechApp:
         cleaned_text = re.sub(
             r'\.(?!\s|$)',  # Dot NOT followed by space or end of line
             ' dot ',
+            cleaned_text
+        )
+        
+        
+        cleaned_text = re.sub(
+            r'--',  # Dot NOT followed by space or end of line
+            ' dash dash ',
             cleaned_text
         )
         
